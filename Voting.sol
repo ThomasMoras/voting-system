@@ -101,9 +101,8 @@ contract Voting is Ownable {
         );
         require(!whitelist[msg.sender].hasVoted, "You have already voted");
 
-        // Une proposition à forcement une description non vide
-        // Permet de vérifier si la proposition existe
-        // Evite de parcourir le tableau (économise du gas)
+        // A proposal can not have an empty description
+        // Using mapping to check if the proposal exist (better than for loop inside array ?)
         require(
             bytes(proposals[_proposalId].description).length > 0,
             "This proposal does not exist"
@@ -135,8 +134,6 @@ contract Voting is Ownable {
                 winner = proposalsTab[i];
             }
         }
-        // console.log("winner desc :", winner.description);
-        // console.log("winner total vote :", winner.voteCount);
         return winner;
     }
 
