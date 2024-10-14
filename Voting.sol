@@ -3,6 +3,7 @@
 pragma solidity 0.8.28;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "hardhat/console.sol";
 
 contract Voting is Ownable {
     struct Voter {
@@ -42,8 +43,9 @@ contract Voting is Ownable {
     mapping(address => Voter) whitelist;
     mapping(uint => Proposal) proposals;
 
-    Proposal[] proposalsTab;
+    Proposal[] public proposalsTab;
     Voter[] private voters;
+    Proposal public winner;
 
     modifier onlyWhiteListed() {
         require(
@@ -58,8 +60,7 @@ contract Voting is Ownable {
             workflowStatus == WorkflowStatus.RegisteringVoters,
             "Users can only be added during the voting registration phase"
         );
-        Voter memory voter = Voter(true, false, 0);
-        whitelist[_addr] = voter;
+        whitelist[_addr] = Voter(true, false, 0);
         emit VoterRegistered(_addr);
     }
 
@@ -81,7 +82,11 @@ contract Voting is Ownable {
             workflowStatus == WorkflowStatus.ProposalsRegistrationStarted,
             "Propositions can only be added during the proposal registration phase"
         );
+        Proposal memory isProposal = proposals[_proposalId];
+        uint proposalLength = bytes(isProposal.description).length;
+        require(proposalLength == 0, "This propositional id is already used");
         require(bytes(_description).length > 0, "Description can not be empty");
+        require(_proposalId > 0, "Propositional id must be greater than 0");
         Proposal memory proposal = Proposal(_description, 0);
         proposals[_proposalId] = proposal;
         proposalsTab.push(proposal);
@@ -110,31 +115,28 @@ contract Voting is Ownable {
         emit Voted(msg.sender, _proposalId);
     }
 
-    function countVotes() external onlyOwner {
+    function countVotes() private onlyOwner {
         require(
             workflowStatus == WorkflowStatus.VotingSessionEnded,
             "Votes can only be counted once the voting phase is completed"
         );
         for (uint i = 0; i < voters.length; i++) {
-            proposals[voters[i].votedProposalId].voteCount += 1;
+            proposalsTab[voters[i].votedProposalId - 1].voteCount += 1;
         }
     }
 
     // Retrieve the winning proposal
-    function getWinner()
-        external
-        view
-        onlyWhiteListed
-        returns (Proposal memory)
-    {
-        Proposal memory winner;
-        uint max = proposals[0].voteCount;
-        for (uint i = 1; i < proposalsTab.length; i++) {
-            if (max < proposals[i].voteCount) {
-                max = proposals[i].voteCount;
+    function getWinner() external onlyOwner returns (Proposal memory) {
+        countVotes();
+        uint max;
+        for (uint i = 0; i < proposalsTab.length; i++) {
+            if (max < proposalsTab[i].voteCount) {
+                max = proposalsTab[i].voteCount;
                 winner = proposalsTab[i];
             }
         }
+        // console.log("winner desc :", winner.description);
+        // console.log("winner total vote :", winner.voteCount);
         return winner;
     }
 
@@ -151,14 +153,13 @@ contract Voting is Ownable {
     // Return voter informations
     function getVoter(
         uint index
-    ) public view onlyWhiteListed returns (bool, bool, uint) {
+    ) external view onlyWhiteListed returns (bool, bool, uint) {
         return (
             voters[index].isRegistered,
             voters[index].hasVoted,
             voters[index].votedProposalId
         );
     }
-
     // Get number of voters
     function getVotersLength() external view onlyWhiteListed returns (uint) {
         return voters.length;
