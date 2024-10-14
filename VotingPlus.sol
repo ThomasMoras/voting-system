@@ -115,6 +115,7 @@ contract Voting is Ownable {
         emit Voted(msg.sender, _proposalId);
     }
 
+    // Count votes and set the proposal tab
     function countVotes() private onlyOwner returns (bool) {
         require(
             workflowStatus == WorkflowStatus.VotingSessionEnded,
@@ -132,11 +133,18 @@ contract Voting is Ownable {
     function getWinner() external onlyOwner returns (Proposal memory) {
         require(countVotes() == true, "Error on countVotes");
         uint max;
+        bool multipleWinner;
         for (uint i = 0; i < proposalsTab.length; i++) {
             if (max < proposalsTab[i].voteCount) {
+                multipleWinner = false;
                 max = proposalsTab[i].voteCount;
                 winner = proposalsTab[i];
+            } else if (max == proposalsTab[i].voteCount) {
+                multipleWinner = true;
             }
+        }
+        if (multipleWinner) {
+            revert("There cannot be multiple winning proposals");
         }
         return winner;
     }
@@ -194,6 +202,7 @@ contract Voting is Ownable {
         return whitelist[_addr].isRegistered;
     }
 
+    // Return string value according to enum workflow state
     function getCurrentWorkflow() external view returns (string memory) {
         if (workflowStatus == WorkflowStatus.RegisteringVoters) {
             return "RegisteringVoters";
